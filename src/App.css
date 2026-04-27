@@ -1,0 +1,56 @@
+.movie-card {
+    width: 200px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s ease;
+}
+
+.movie-card:hover {
+    transform: scale(1.08);
+    z-index: 5;
+}
+
+.movie-card-inner {
+    position: relative;
+}
+
+.movie-card img {
+    width: 100%;
+    border-radius: 10px;
+    display: block;
+}
+
+.movie-card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    color: white;
+    padding: 10px;
+    opacity: 0;
+    transition: 0.3s ease;
+}
+
+.movie-card:hover .movie-card-overlay {
+    opacity: 1;
+}
+
+.rating {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.star {
+    color: gold;
+}
+
+.view-details-btn {
+    margin-top: 8px;
+    padding: 5px 10px;
+    border: none;
+    background: red;
+    color: white;
+    cursor: pointer;
+}
