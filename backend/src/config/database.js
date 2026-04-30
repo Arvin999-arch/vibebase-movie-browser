@@ -1,7 +1,7 @@
 // src/config/database.js (temporary - without Prisma)
 // This is a temporary mock until Prisma is fixed
 
-console.log('⚠️ Using mock database config - Prisma not available');
+console.log(' Using mock database config - Prisma not available');
 
 // Mock database functions
 const prisma = {

@@ -13,6 +13,7 @@ build/
 .env
 .env.local
 .env.production
+.env.development
 
 # IDE files
 .vscode/
@@ -35,8 +36,19 @@ coverage/
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+*.db
 
-# Backend
+# Backend specific
 backend/node_modules/
 backend/dist/
 backend/*.log
+backend/data/*.json
+
+# Frontend specific
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Database
+*.sqlite
+*.sqlite-journal

@@ -1,7 +1,13 @@
 // backend/src/routes/auth.js
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, logout } = require('../controllers/authController');
+const { 
+  register, 
+  login, 
+  getMe, 
+  logout,
+  getUsers 
+} = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { validateRegister, validateLogin, checkValidation } = require('../middleware/validation');
 
@@ -9,7 +15,10 @@ const { validateRegister, validateLogin, checkValidation } = require('../middlew
 router.post('/register', validateRegister, checkValidation, register);
 router.post('/login', validateLogin, checkValidation, login);
 
-// Protected routes (only logged in users can access)
+// Testing route - view all users (remove in production)
+router.get('/users', getUsers);
+
+// Protected routes (only logged in users)
 router.get('/me', protect, getMe);
 router.post('/logout', protect, logout);
 
