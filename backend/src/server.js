@@ -1,40 +1,22 @@
-// backend/src/server.js
 const { PrismaClient } = require('@prisma/client');
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const rateLimit = require('express-rate-limit');
 
 const prisma = new PrismaClient();
 const app = express();
 
-// Rate limiting for security
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { success: false, error: 'Too many requests, please try again later.' }
-});
-
-app.use('/api/auth', limiter);
-
-// CORS Configuration - Allow Vercel frontend
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://vibebase-movie-browser.vercel.app',
-  'https://vibebase-movie-browser-*.vercel.app'
-];
-
+// Simple CORS - Allow all Vercel domains
 app.use(cors({
   origin: function(origin, callback) {
+    // Allow all Vercel domains, localhost, and no-origin requests
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      console.log(`❌ CORS blocked: ${origin}`);
-      return callback(new Error('CORS not allowed'), false);
+    if (origin.includes('vercel.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
     }
-    console.log(`✅ CORS allowed: ${origin}`);
-    return callback(null, true);
+    console.log(`CORS blocked: ${origin}`);
+    return callback(new Error('CORS not allowed'), false);
   },
   credentials: true
 }));
@@ -58,7 +40,6 @@ app.get('/api/health', async (req, res) => {
       status: 'OK',
       message: 'VibeBase Backend is running!',
       database: 'connected',
-      backend: 'https://vibebase-backend.onrender.com',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -66,41 +47,18 @@ app.get('/api/health', async (req, res) => {
       status: 'OK',
       message: 'VibeBase Backend is running!',
       database: 'disconnected',
-      error: error.message,
-      timestamp: new Date().toISOString()
+      error: error.message
     });
-  }
-});
-
-// Get all users (debugging)
-app.get('/api/auth/users', async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      select: { id: true, username: true, email: true, createdAt: true }
-    });
-    res.json({ success: true, count: users.length, users });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch users' });
   }
 });
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
-  console.log(`📝 Register attempt: ${username}, ${email}`);
+  console.log(`Register attempt: ${username}, ${email}`);
 
   if (!username || !email || !password) {
     return res.status(400).json({ success: false, error: 'All fields are required' });
-  }
-  if (username.length < 3) {
-    return res.status(400).json({ success: false, error: 'Username must be at least 3 characters' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
-  }
-  if (!email.includes('@')) {
-    return res.status(400).json({ success: false, error: 'Please enter a valid email address' });
   }
 
   try {
@@ -109,10 +67,10 @@ app.post('/api/auth/register', async (req, res) => {
     });
 
     if (existingUser) {
-      const error = existingUser.email === email
-        ? 'Email already registered. Please login.'
-        : 'Username already taken. Please choose another.';
-      return res.status(400).json({ success: false, error });
+      return res.status(400).json({ 
+        success: false, 
+        error: existingUser.email === email ? 'Email already registered' : 'Username already taken'
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -121,9 +79,7 @@ app.post('/api/auth/register', async (req, res) => {
       select: { id: true, username: true, email: true, createdAt: true }
     });
 
-    console.log(`✅ User registered: ${newUser.id}`);
     const token = generateToken(newUser);
-
     res.status(201).json({
       success: true,
       message: 'Registration successful!',
@@ -138,7 +94,7 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  console.log(`🔐 Login attempt: ${email}`);
+  console.log(`Login attempt: ${email}`);
 
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Email and password are required' });
@@ -152,12 +108,10 @@ app.post('/api/auth/login', async (req, res) => {
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return res.status(401).json({ success: false, error: 'Invalid password. Please try again.' });
+      return res.status(401).json({ success: false, error: 'Invalid password' });
     }
 
-    console.log(`✅ User logged in: ${user.id}`);
     const token = generateToken({ id: user.id, username: user.username, email: user.email });
-
     res.json({
       success: true,
       message: 'Login successful!',
@@ -185,7 +139,6 @@ app.get('/api/auth/me', async (req, res) => {
       where: { id: decoded.id },
       select: { id: true, username: true, email: true, createdAt: true }
     });
-
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -195,19 +148,11 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-// Logout
-app.post('/api/auth/logout', (req, res) => {
-  res.json({ success: true, message: 'Logged out successfully' });
-});
-
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 VibeBase Backend Server Running!`);
-  console.log(`📍 https://vibebase-backend.onrender.com`);
   console.log(`📍 http://localhost:${PORT}`);
-  console.log(`📋 Health: https://vibebase-backend.onrender.com/api/health`);
+  console.log(`📋 Health: http://localhost:${PORT}/api/health`);
   console.log(`\n✅ Ready to accept connections\n`);
-  console.log(`🌐 CORS enabled for origins:`);
-  allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
 });
