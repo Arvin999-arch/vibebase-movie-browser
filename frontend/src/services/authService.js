@@ -1,5 +1,6 @@
 // frontend/src/services/authService.js
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/auth';
+// Use the new Render backend URL
+const API_URL = 'https://vibebase-backend.onrender.com/api/auth';
 
 // Store auth data
 const setAuthData = (token, user) => {
@@ -12,7 +13,7 @@ const setAuthData = (token, user) => {
   }
 };
 
-// Register
+// Register new user
 export const register = async (username, email, password) => {
   try {
     const response = await fetch(`${API_URL}/register`, {
@@ -22,9 +23,11 @@ export const register = async (username, email, password) => {
     });
     
     const data = await response.json();
+    
     if (data.success) {
       setAuthData(data.data.token, data.data.user);
     }
+    
     return data;
   } catch (error) {
     console.error('Register error:', error);
@@ -32,7 +35,7 @@ export const register = async (username, email, password) => {
   }
 };
 
-// Login
+// Login user
 export const login = async (email, password) => {
   try {
     const response = await fetch(`${API_URL}/login`, {
@@ -42,9 +45,11 @@ export const login = async (email, password) => {
     });
     
     const data = await response.json();
+    
     if (data.success) {
       setAuthData(data.data.token, data.data.user);
     }
+    
     return data;
   } catch (error) {
     console.error('Login error:', error);
@@ -68,6 +73,7 @@ export const getCurrentUser = async () => {
     });
     
     const data = await response.json();
+    
     if (data.success) {
       return data.data.user;
     } else {
@@ -75,7 +81,7 @@ export const getCurrentUser = async () => {
       return null;
     }
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('Get current user error:', error);
     return null;
   }
 };

@@ -1,3 +1,4 @@
+// backend/src/server.js
 const { PrismaClient } = require('@prisma/client');
 const express = require('express');
 const cors = require('cors');
@@ -17,19 +18,16 @@ const limiter = rateLimit({
 
 app.use('/api/auth', limiter);
 
-// CORS Configuration - Add all your Vercel URLs
+// CORS Configuration - Allow Vercel frontend
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://vibebase-movie-browser.vercel.app',
-  'https://vibebase-movie-browser-pi1bwjhjc-arvin999-archs-projects.vercel.app',
-  'https://vibebase-movie-browser-pilbwjhc-arvin999-archs-projects.vercel.app',
-  'https://vibebase-movie-browser-ln32ssfcy-arvin999-archs-projects.vercel.app'
+  'https://vibebase-movie-browser-*.vercel.app'
 ];
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log(`❌ CORS blocked: ${origin}`);
@@ -60,6 +58,7 @@ app.get('/api/health', async (req, res) => {
       status: 'OK',
       message: 'VibeBase Backend is running!',
       database: 'connected',
+      backend: 'https://vibebase-backend.onrender.com',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -205,8 +204,9 @@ app.post('/api/auth/logout', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 VibeBase Backend Server Running!`);
+  console.log(`📍 https://vibebase-backend.onrender.com`);
   console.log(`📍 http://localhost:${PORT}`);
-  console.log(`📋 Health: http://localhost:${PORT}/api/health`);
+  console.log(`📋 Health: https://vibebase-backend.onrender.com/api/health`);
   console.log(`\n✅ Ready to accept connections\n`);
   console.log(`🌐 CORS enabled for origins:`);
   allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
