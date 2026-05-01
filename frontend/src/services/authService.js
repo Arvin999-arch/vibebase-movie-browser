@@ -80,8 +80,8 @@ export const getCurrentUser = async () => {
       logout();
       return null;
     }
-  } catch (error) {
-    console.error('Get current user error:', error);
+  } catch (err) {
+    console.error('Get current user error:', err);
     return null;
   }
 };
