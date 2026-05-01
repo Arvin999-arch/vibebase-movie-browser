@@ -17,15 +17,19 @@ const limiter = rateLimit({
 
 app.use('/api/auth', limiter);
 
-// CORS Configuration
+// CORS Configuration - Add all your Vercel URLs
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://vibebase-movie-browser.vercel.app'
+  'https://vibebase-movie-browser.vercel.app',
+  'https://vibebase-movie-browser-pi1bwjhjc-arvin999-archs-projects.vercel.app',
+  'https://vibebase-movie-browser-pilbwjhc-arvin999-archs-projects.vercel.app',
+  'https://vibebase-movie-browser-ln32ssfcy-arvin999-archs-projects.vercel.app'
 ];
 
 app.use(cors({
   origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log(`❌ CORS blocked: ${origin}`);
@@ -51,7 +55,6 @@ const generateToken = (user) => {
 // Health Check
 app.get('/api/health', async (req, res) => {
   try {
-    // Test database connection
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: 'OK',
@@ -88,7 +91,6 @@ app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
   console.log(`📝 Register attempt: ${username}, ${email}`);
 
-  // Validation
   if (!username || !email || !password) {
     return res.status(400).json({ success: false, error: 'All fields are required' });
   }
@@ -103,7 +105,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    // Check if user exists
     const existingUser = await prisma.user.findFirst({
       where: { OR: [{ email }, { username }] }
     });
@@ -115,7 +116,6 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error });
     }
 
-    // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await prisma.user.create({
       data: { username, email, password: hashedPassword },
@@ -208,4 +208,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📍 http://localhost:${PORT}`);
   console.log(`📋 Health: http://localhost:${PORT}/api/health`);
   console.log(`\n✅ Ready to accept connections\n`);
+  console.log(`🌐 CORS enabled for origins:`);
+  allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
 });
