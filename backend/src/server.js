@@ -3,15 +3,27 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 
 const prisma = new PrismaClient();
 const app = express();
+
+// Rate limiting to prevent brute force attacks
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { success: false, error: 'Too many requests, please try again later.' }
+});
+
+// Apply rate limiting to auth endpoints
+app.use('/api/auth', limiter);
 
 // Configure CORS for production
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://vibebase-movie-browser.vercel.app'  // Your Vercel frontend URL
+  'https://vibebase-movie-browser.vercel.app',
+  'https://vibebase-movie-browser-git-main.vercel.app'
 ];
 
 app.use(cors({
@@ -19,17 +31,17 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      console.log(`CORS blocked origin: ${origin}`);
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      return callback(new Error('CORS not allowed'), false);
     }
-    console.log(`CORS allowed origin: ${origin}`);
+    console.log(`✅ CORS allowed origin: ${origin}`);
     return callback(null, true);
   },
   credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Helper function to generate JWT token
 const generateToken = (user) => {
@@ -40,35 +52,19 @@ const generateToken = (user) => {
   );
 };
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'VibeBase API is running!',
-    endpoints: {
-      health: '/api/health',
-      register: '/api/auth/register',
-      login: '/api/auth/login',
-      me: '/api/auth/me',
-      users: '/api/auth/users',
-      watchlist: '/api/users/watchlist',
-      favorites: '/api/users/favorites'
-    }
-  });
-});
-
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'VibeBase Backend is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: prisma ? 'connected' : 'disconnected'
   });
 });
 
-// Get all registered users (for debugging)
+// Get all registered users (admin only - for debugging)
 app.get('/api/auth/users', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -76,8 +72,10 @@ app.get('/api/auth/users', async (req, res) => {
         id: true,
         username: true,
         email: true,
-        createdAt: true
-      }
+        createdAt: true,
+        lastLogin: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
     res.json({
       success: true,
@@ -90,11 +88,11 @@ app.get('/api/auth/users', async (req, res) => {
   }
 });
 
-// Register
+// Register new user
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
 
-  console.log(`Registration attempt: ${username}, ${email}`);
+  console.log(`📝 Registration attempt: ${username}, ${email}`);
 
   // Validation
   if (!username || !email || !password) {
@@ -118,7 +116,8 @@ app.post('/api/auth/register', async (req, res) => {
     });
   }
 
-  if (!email.includes('@')) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
     return res.status(400).json({
       success: false,
       error: 'Please enter a valid email address'
@@ -126,7 +125,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    // Check if user exists in database
+    // Check if user exists
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [{ email }, { username }]
@@ -143,7 +142,7 @@ app.post('/api/auth/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user in database
+    // Create user
     const newUser = await prisma.user.create({
       data: {
         username,
@@ -180,11 +179,11 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Login
+// Login user
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
-  console.log(`Login attempt: ${email}`);
+  console.log(`🔐 Login attempt: ${email}`);
 
   if (!email || !password) {
     return res.status(400).json({
@@ -194,7 +193,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    // Find user in database
+    // Find user
     const user = await prisma.user.findUnique({
       where: { email }
     });
@@ -215,6 +214,12 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    });
+
     console.log(`✅ User logged in: ${user.id} - ${user.email}`);
 
     // Generate JWT token
@@ -232,7 +237,8 @@ app.post('/api/auth/login', async (req, res) => {
           id: user.id,
           username: user.username,
           email: user.email,
-          createdAt: user.createdAt
+          createdAt: user.createdAt,
+          lastLogin: user.lastLogin
         },
         token
       }
@@ -265,7 +271,8 @@ app.get('/api/auth/me', async (req, res) => {
         id: true,
         username: true,
         email: true,
-        createdAt: true
+        createdAt: true,
+        lastLogin: true
       }
     });
 
@@ -309,10 +316,11 @@ app.get('/api/users/watchlist', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
     const watchlist = await prisma.watchlist.findMany({
       where: { userId: decoded.id },
-      include: { movie: true }
+      orderBy: { addedAt: 'desc' }
     });
     res.json({ success: true, watchlist });
   } catch (error) {
+    console.error('Watchlist fetch error:', error);
     res.status(401).json({ success: false, error: 'Invalid token' });
   }
 });
@@ -325,10 +333,14 @@ app.post('/api/users/watchlist', async (req, res) => {
     return res.status(401).json({ success: false, error: 'Not authenticated' });
   }
 
+  if (!movieId || !movieTitle) {
+    return res.status(400).json({ success: false, error: 'Movie ID and title are required' });
+  }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
 
-    // Check if movie already in watchlist
+    // Check if already in watchlist
     const existing = await prisma.watchlist.findFirst({
       where: { userId: decoded.id, movieId }
     });
@@ -343,7 +355,7 @@ app.post('/api/users/watchlist', async (req, res) => {
         userId: decoded.id,
         movieId,
         movieTitle,
-        posterPath
+        posterPath: posterPath || null
       }
     });
 
@@ -374,6 +386,7 @@ app.delete('/api/users/watchlist/:movieId', async (req, res) => {
 
     res.json({ success: true, message: 'Removed from watchlist' });
   } catch (error) {
+    console.error('Watchlist delete error:', error);
     res.status(401).json({ success: false, error: 'Invalid token' });
   }
 });
@@ -383,13 +396,13 @@ app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     error: `Route ${req.originalUrl} not found`,
-    message: 'Available endpoints: /api/health, /api/auth/register, /api/auth/login, /api/auth/me'
+    message: 'Available endpoints: /api/health, /api/auth/register, /api/auth/login, /api/auth/me, /api/auth/users'
   });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Server error:', err);
   res.status(500).json({
     success: false,
     error: 'Internal server error'
