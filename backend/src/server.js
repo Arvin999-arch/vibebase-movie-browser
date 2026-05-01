@@ -11,9 +11,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://vibebase-movie-browser.netlify.app',
-  'https://vibebasemoviebrowser.netlify.app',
-  'https://vibebase.netlify.app'
+  'https://vibebase-movie-browser.vercel.app'  // Your Vercel frontend URL
 ];
 
 app.use(cors({
@@ -21,11 +19,11 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      console.log(`❌ CORS blocked origin: ${origin}`);
+      console.log(`CORS blocked origin: ${origin}`);
       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
       return callback(new Error(msg), false);
     }
-    console.log(`✅ CORS allowed origin: ${origin}`);
+    console.log(`CORS allowed origin: ${origin}`);
     return callback(null, true);
   },
   credentials: true
@@ -61,8 +59,8 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'VibeBase Backend is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
@@ -81,7 +79,6 @@ app.get('/api/auth/users', async (req, res) => {
         createdAt: true
       }
     });
-    
     res.json({
       success: true,
       count: users.length,
@@ -96,59 +93,56 @@ app.get('/api/auth/users', async (req, res) => {
 // Register
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
-  
-  console.log('📝 Registration attempt:', { username, email });
-  
+
+  console.log(`Registration attempt: ${username}, ${email}`);
+
   // Validation
   if (!username || !email || !password) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'All fields are required' 
+    return res.status(400).json({
+      success: false,
+      error: 'All fields are required'
     });
   }
-  
+
   if (username.length < 3) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Username must be at least 3 characters' 
+    return res.status(400).json({
+      success: false,
+      error: 'Username must be at least 3 characters'
     });
   }
-  
+
   if (password.length < 6) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Password must be at least 6 characters' 
+    return res.status(400).json({
+      success: false,
+      error: 'Password must be at least 6 characters'
     });
   }
-  
+
   if (!email.includes('@')) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Please enter a valid email address' 
+    return res.status(400).json({
+      success: false,
+      error: 'Please enter a valid email address'
     });
   }
-  
+
   try {
     // Check if user exists in database
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { email },
-          { username }
-        ]
+        OR: [{ email }, { username }]
       }
     });
-    
+
     if (existingUser) {
-      const error = existingUser.email === email 
-        ? 'Email already registered. Please login.' 
+      const error = existingUser.email === email
+        ? 'Email already registered. Please login.'
         : 'Username already taken. Please choose another.';
       return res.status(400).json({ success: false, error });
     }
-    
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Create user in database
     const newUser = await prisma.user.create({
       data: {
@@ -163,12 +157,12 @@ app.post('/api/auth/register', async (req, res) => {
         createdAt: true
       }
     });
-    
-    console.log('✅ User registered:', { id: newUser.id, email: newUser.email });
-    
+
+    console.log(`✅ User registered: ${newUser.id} - ${newUser.email}`);
+
     // Generate JWT token
     const token = generateToken(newUser);
-    
+
     res.status(201).json({
       success: true,
       message: 'Registration successful!',
@@ -179,9 +173,9 @@ app.post('/api/auth/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Server error during registration' 
+    res.status(500).json({
+      success: false,
+      error: 'Server error during registration'
     });
   }
 });
@@ -189,47 +183,47 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  
-  console.log('🔐 Login attempt:', { email });
-  
+
+  console.log(`Login attempt: ${email}`);
+
   if (!email || !password) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Email and password are required' 
+    return res.status(400).json({
+      success: false,
+      error: 'Email and password are required'
     });
   }
-  
+
   try {
     // Find user in database
     const user = await prisma.user.findUnique({
       where: { email }
     });
-    
+
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'No account found with this email. Please register first.' 
+      return res.status(401).json({
+        success: false,
+        error: 'No account found with this email. Please register first.'
       });
     }
-    
+
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return res.status(401).json({ 
-        success: false, 
-        error: 'Invalid password. Please try again.' 
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid password. Please try again.'
       });
     }
-    
-    console.log('✅ User logged in:', { id: user.id, email: user.email });
-    
+
+    console.log(`✅ User logged in: ${user.id} - ${user.email}`);
+
     // Generate JWT token
     const token = generateToken({
       id: user.id,
       username: user.username,
       email: user.email
     });
-    
+
     res.json({
       success: true,
       message: 'Login successful!',
@@ -245,9 +239,9 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Server error during login' 
+    res.status(500).json({
+      success: false,
+      error: 'Server error during login'
     });
   }
 });
@@ -255,14 +249,14 @@ app.post('/api/auth/login', async (req, res) => {
 // Get current user (protected route)
 app.get('/api/auth/me', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  
+
   if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'No token provided. Please login.' 
+    return res.status(401).json({
+      success: false,
+      error: 'No token provided. Please login.'
     });
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
     const user = await prisma.user.findUnique({
@@ -274,50 +268,49 @@ app.get('/api/auth/me', async (req, res) => {
         createdAt: true
       }
     });
-    
+
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: { user }
     });
   } catch (error) {
     console.error('Token verification error:', error);
-    res.status(401).json({ 
-      success: false, 
-      error: 'Invalid or expired token' 
+    res.status(401).json({
+      success: false,
+      error: 'Invalid or expired token'
     });
   }
 });
 
 // Logout
 app.post('/api/auth/logout', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Logged out successfully' 
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
   });
 });
 
 // Watchlist endpoints
 app.get('/api/users/watchlist', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  
+
   if (!token) {
     return res.status(401).json({ success: false, error: 'Not authenticated' });
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
     const watchlist = await prisma.watchlist.findMany({
       where: { userId: decoded.id },
       include: { movie: true }
     });
-    
     res.json({ success: true, watchlist });
   } catch (error) {
     res.status(401).json({ success: false, error: 'Invalid token' });
@@ -327,26 +320,23 @@ app.get('/api/users/watchlist', async (req, res) => {
 app.post('/api/users/watchlist', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const { movieId, movieTitle, posterPath } = req.body;
-  
+
   if (!token) {
     return res.status(401).json({ success: false, error: 'Not authenticated' });
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
-    
-    // Check if movie exists in watchlist
+
+    // Check if movie already in watchlist
     const existing = await prisma.watchlist.findFirst({
-      where: {
-        userId: decoded.id,
-        movieId
-      }
+      where: { userId: decoded.id, movieId }
     });
-    
+
     if (existing) {
       return res.status(400).json({ success: false, error: 'Movie already in watchlist' });
     }
-    
+
     // Add to watchlist
     const watchlistItem = await prisma.watchlist.create({
       data: {
@@ -356,9 +346,10 @@ app.post('/api/users/watchlist', async (req, res) => {
         posterPath
       }
     });
-    
+
     res.json({ success: true, watchlistItem });
   } catch (error) {
+    console.error('Watchlist add error:', error);
     res.status(401).json({ success: false, error: 'Invalid token' });
   }
 });
@@ -366,21 +357,21 @@ app.post('/api/users/watchlist', async (req, res) => {
 app.delete('/api/users/watchlist/:movieId', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const movieId = parseInt(req.params.movieId);
-  
+
   if (!token) {
     return res.status(401).json({ success: false, error: 'Not authenticated' });
   }
-  
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'vibebase-secret-key');
-    
+
     await prisma.watchlist.deleteMany({
       where: {
         userId: decoded.id,
         movieId
       }
     });
-    
+
     res.json({ success: true, message: 'Removed from watchlist' });
   } catch (error) {
     res.status(401).json({ success: false, error: 'Invalid token' });
@@ -389,8 +380,8 @@ app.delete('/api/users/watchlist/:movieId', async (req, res) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ 
-    success: false, 
+  res.status(404).json({
+    success: false,
     error: `Route ${req.originalUrl} not found`,
     message: 'Available endpoints: /api/health, /api/auth/register, /api/auth/login, /api/auth/me'
   });
@@ -399,9 +390,9 @@ app.use('*', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({ 
-    success: false, 
-    error: 'Internal server error' 
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error'
   });
 });
 
@@ -418,3 +409,4 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 CORS enabled for origins:`);
   allowedOrigins.forEach(origin => console.log(`   - ${origin}`));
 });
+

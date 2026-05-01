@@ -1,3 +1,4 @@
+
 // src/services/api.js
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const BASE_URL = "https://api.themoviedb.org/3";
@@ -10,8 +11,7 @@ const handleResponse = async (response) => {
       const errorData = await response.json();
       errorMessage = errorData.status_message || errorMessage;
     } catch {
-      // Remove the unused 'e' parameter - just leave empty catch block
-      // ignore JSON parsing error
+      // Ignore JSON parsing error
     }
     throw new Error(errorMessage);
   }
@@ -27,16 +27,23 @@ const requireApiKey = () => {
   }
 };
 
+// Helper to log only in development
+const logDev = (message, data) => {
+  if (import.meta.env.DEV) {
+    console.log(message, data);
+  }
+};
+
 export const getPopularMovies = async () => {
   try {
     requireApiKey();
     const url = `${BASE_URL}/movie/popular?api_key=${API_KEY}&language=en-US&page=1`;
-    console.log("Fetching popular movies from:", url.replace(API_KEY, "HIDDEN"));
+    logDev("Fetching popular movies from:", url.replace(API_KEY, "HIDDEN"));
     
     const response = await fetch(url);
     const data = await handleResponse(response);
     
-    console.log("Movies received:", data.results?.length || 0);
+    logDev("Movies received:", data.results?.length || 0);
     return data.results || [];
   } catch (error) {
     console.error("Failed to fetch popular movies:", error);
@@ -50,12 +57,12 @@ export const searchMovies = async (query) => {
   try {
     requireApiKey();
     const url = `${BASE_URL}/search/movie?api_key=${API_KEY}&language=en-US&query=${encodeURIComponent(query)}&page=1`;
-    console.log("Searching movies from:", url.replace(API_KEY, "HIDDEN"));
+    logDev("Searching movies from:", url.replace(API_KEY, "HIDDEN"));
     
     const response = await fetch(url);
     const data = await handleResponse(response);
     
-    console.log("Search results:", data.results?.length || 0);
+    logDev("Search results:", data.results?.length || 0);
     return data.results || [];
   } catch (error) {
     console.error("Failed to search movies:", error);
@@ -100,5 +107,4 @@ export const getSimilarMovies = async (id) => {
     return [];
   }
 };
-
 
