@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: vibebase-backend
+    runtime: node
+    repo: https://github.com/Arvin999-arch/vibebase-movie-browser
+    branch: main
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false
